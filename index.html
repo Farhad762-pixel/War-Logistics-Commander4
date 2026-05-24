@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>WAR LOGISTICS COMMANDER — Advanced LogSim 4</title>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+
+:root{
+  --bg:#030608;
+  --panel:rgba(3,10,13,.90);
+  --panel2:rgba(7,18,23,.95);
+  --line:rgba(90,255,220,.34);
+  --cyan:#5affdc;
+  --red:#ff3f3f;
+  --green:#64ff92;
+  --yellow:#ffe36a;
+  --orange:#ff9d38;
+  --blue:#78bcff;
+  --white:#eafffb;
+  --muted:#9ab7b2;
+}
+
+html,body{
+  min-height:100%;
+  background:var(--bg);
+  color:var(--white);
+  font-family:"Courier New",monospace;
+  overflow-x:hidden;
+}
+
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:-5;
+  background:
+    radial-gradient(circle at 16% 18%,rgba(255,0,0,.18),transparent 25%),
+    radial-gradient(circle at 80% 86%,rgba(255,115,0,.22),transparent 28%),
+    linear-gradient(rgba(0,0,0,.70),rgba(0,0,0,.95)),
+    url("https://images.unsplash.com/photo-1514924013411-cbf25faa35bb?q=80&w=2070&auto=format&fit=crop");
+  background-size:cover;
+  background-position:center;
+}
+
+body::after{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:50;
+  pointer-events:none;
+  background:repeating-linear-gradient(to bottom,rgba(255,255,255,.035) 0px,rgba(255,255,255,.035) 1px,transparent 2px,transparent 6px);
+  opacity:.45;
+}
+
+.fire{
+  position:fixed;
+  left:0;
+  bottom:0;
+  width:100%;
+  height:280px;
+  z-index:-4;
+  pointer-events:none;
+  background:linear-gradient(to top,rgba(255,55,0,.72),rgba(255,145,0,.25),transparent);
+  animation:fireGlow 1.2s infinite alternate;
+}
+
+@keyframes fireGlow{from{opacity:.45}to{opacity:1}}
+
+.shake{animation:shake .14s infinite}
+@keyframes shake{
+  0%{transform:translate(1px,1px)}
+  25%{transform:translate(-2px,1px)}
+  50%{transform:translate(2px,-1px)}
+  75%{transform:translate(-1px,2px)}
+  100%{transform:translate(1px,-2px)}
+}
+
+.screen{display:none;min-height:100vh}
+.screen.active{display:block}
+
+/* INTRO */
+.intro{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:30px;
+  text-align:center;
+}
+
+.introCard{
+  max-width:1100px;
+  padding:48px;
+  background:rgba(0,0,0,.84);
+  border:1px solid var(--cyan);
+  box-shadow:0 0 45px rgba(90,255,220,.23);
+}
+
+.logo{
+  color:var(--cyan);
+  font-size:50px;
+  letter-spacing:5px;
+  text-shadow:0 0 24px var(--cyan);
+  margin-bottom:10px;
+}
+
+.subtitle{
+  color:var(--red);
+  letter-spacing:4px;
+  margin-bottom:24px;
+  font-size:15px;
+}
+
+.introText{
+  color:#dffff8;
+  font-size:18px;
+  line-height:1.8;
+}
+
+.start{
+  margin-top:32px;
+  padding:16px 44px;
+  border:2px solid var(--cyan);
+  background:rgba(90,255,220,.07);
+  color:var(--cyan);
+  font-size:20px;
+  letter-spacing:3px;
+  font-weight:bold;
+  cursor:pointer;
+  box-shadow:0 0 20px rgba(90,255,220,.25);
+}
+
+.start:hover{background:var(--cyan);color:#001711}
+
+/* GAME */
+.gameWrap{
+  width:96%;
+  max-width:1660px;
+  margin:auto;
+  padding:20px 0 32px;
+}
+
+.top{text-align:center;padding:18px 0}
+.top .logo{font-size:38px}
+
+.alertBar{
+  max-width:1000px;
+  margin:15px auto 0;
+  padding:12px 15px;
+  border:1px solid var(--red);
+  color:#ff8080;
+  background:rgba(255,0,0,.10);
+  animation:blink 1.05s infinite;
+  font-weight:bold;
+}
+
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+
+.panel{
+  background:var(--panel);
+  border:1px solid var(--line);
+  box-shadow:0 0 20px rgba(90,255,220,.09);
+  padding:17px;
+  margin-bottom:16px;
+}
+
+.panelTitle{
+  color:var(--cyan);
+  letter-spacing:2px;
+  margin-bottom:13px;
+  font-weight:bold;
+}
+
+.statusGrid{
+  display:grid;
+  grid-template-columns:repeat(12,1fr);
+  gap:9px;
+}
+
+.status{
+  background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.14);
+  padding:11px;
+  min-height:82px;
+}
+
+.status span{
+  display:block;
+  color:var(--muted);
+  font-size:11px;
+  margin-bottom:7px;
+  letter-spacing:1px;
+}
+
+.status strong{
+  color:#fff5ad;
+  font-size:24px;
+}
+
+.bar{
+  height:7px;
+  margin-top:8px;
+  background:rgba(255,255,255,.12);
+  overflow:hidden;
+}
+
+.fill{
+  height:100%;
+  width:50%;
+  background:var(--cyan);
+  transition:.25s;
+}
+
+.fill.red{background:var(--red)}
+.fill.yellow{background:var(--yellow)}
+.fill.green{background:var(--green)}
+
+.phaseTrack{
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:8px;
+}
+
+.phase{
+  text-align:center;
+  padding:12px 6px;
+  border:1px solid rgba(255,255,255,.15);
+  background:rgba(255,255,255,.035);
+  color:#83e8d5;
+  font-size:13px;
+  letter-spacing:1px;
+}
+
+.phase.active{
+  border-color:var(--red);
+  color:white;
+  background:rgba(255,0,0,.27);
+  box-shadow:0 0 18px rgba(255,0,0,.43);
+}
+
+.mainGrid{
+  display:grid;
+  grid-template-columns:1.08fr .92fr;
+  gap:17px;
+}
+
+.commandTitle{
+  color:#ff6969;
+  font-size:24px;
+  margin-bottom:12px;
+  letter-spacing:1px;
+}
+
+.brief{
+  color:#eafffa;
+  line-height:1.65;
+  font-size:17px;
+  margin-bottom:12px;
+}
+
+.missionBox{
+  color:#fff0a8;
+  line-height:1.6;
+  border-left:4px solid var(--yellow);
+  padding-left:12px;
+  margin:13px 0;
+}
+
+.buttons{
+  display:flex;
+  flex-wrap:wrap;
+  gap:9px;
+  margin-top:14px;
+}
+
+button{
+  font-family:"Courier New",monospace;
+  padding:12px 15px;
+  border:1px solid var(--cyan);
+  background:rgba(90,255,220,.08);
+  color:var(--cyan);
+  font-weight:bold;
+  cursor:pointer;
+  transition:.18s;
+}
+
+button:hover{background:var(--cyan);color:#001711;transform:translateY(-1px)}
+button.red{border-color:var(--red);color:#ff7777;background:rgba(255,0,0,.10)}
+button.red:hover{background:var(--red);color:white}
+button.yellow{border-color:var(--yellow);color:var(--yellow);background:rgba(255,225,104,.08)}
+button.yellow:hover{background:var(--yellow);color:#171200}
+button.green{border-color:var(--green);color:var(--green);background:rgba(98,255,144,.08)}
+button.green:hover{background:var(--green);color:#001b08}
+button.orange{border-color:var(--orange);color:var(--orange);background:rgba(255,157,56,.08)}
+button.orange:hover{background:var(--orange);color:#1a0c00}
+button.blue{border-color:var(--blue);color:var(--blue);background:rgba(123,188,255,.08)}
+button.blue:hover{background:var(--blue);color:#00101f}
+
+.messageBox{
+  min-height:128px;
+  border-left:4px solid var(--red);
+  padding-left:14px;
+  color:#eafffa;
+  line-height:1.65;
+}
+
+.logBox{
+  height:285px;
+  overflow:auto;
+  line-height:1.63;
+  color:#cffff5;
+  font-size:14px;
+}
+
+.good{color:#80ffa4}
+.bad{color:#ff7777}
+.warn{color:#ffe17e}
+.info{color:#87d9ff}
+
+.upgradeGrid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px;
+}
+
+.upgrade{
+  background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.14);
+  padding:12px;
+  line-height:1.45;
+}
+
+.upgrade h3{
+  color:var(--cyan);
+  font-size:15px;
+  margin-bottom:6px;
+}
+
+.upgrade strong{color:#fff5ad}
+
+.map{
+  position:relative;
+  height:525px;
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.20);
+  background:
+    linear-gradient(rgba(0,0,0,.38),rgba(0,0,0,.82)),
+    url("https://images.unsplash.com/photo-1508615070457-7baeba4003ab?q=80&w=2070&auto=format&fit=crop");
+  background-size:cover;
+  background-position:center;
+}
+
+.mapGrid{
+  position:absolute;
+  inset:0;
+  background:
+    linear-gradient(rgba(90,255,220,.07) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(90,255,220,.07) 1px,transparent 1px);
+  background-size:45px 45px;
+}
+
+.signal{
+  position:absolute;
+  top:14px;
+  left:14px;
+  border:1px solid var(--red);
+  color:#ff7777;
+  padding:10px 12px;
+  background:rgba(0,0,0,.85);
+  animation:blink 1s infinite;
+  z-index:3;
+}
+
+.mapUnit{
+  position:absolute;
+  padding:9px 11px;
+  background:rgba(0,0,0,.83);
+  border:1px solid rgba(255,255,255,.35);
+  font-weight:bold;
+  z-index:3;
+}
+
+.base{left:7%;bottom:45px;border-color:var(--cyan)}
+.frontline{right:8%;bottom:70px;border-color:var(--green)}
+.enemy{right:12%;top:110px;border-color:var(--red)}
+.heli{left:40%;top:76px;border-color:var(--cyan);animation:fly 2.7s infinite alternate}
+.convoy{left:31%;bottom:50px;border-color:var(--yellow)}
+.tank{right:30%;bottom:145px;border-color:var(--orange)}
+.drone{left:30%;top:160px;border-color:var(--blue);animation:fly 2.2s infinite alternate}
+
+@keyframes fly{from{transform:translateY(0)}to{transform:translateY(-24px)}}
+.convoy.run{animation:runConvoy 1.7s ease-in-out}
+@keyframes runConvoy{0%{left:12%;bottom:50px}50%{left:48%;bottom:88px}100%{left:76%;bottom:70px}}
+
+.explosion{
+  position:absolute;
+  right:30%;
+  bottom:120px;
+  font-size:62px;
+  animation:boom .84s infinite alternate;
+  z-index:2;
+}
+@keyframes boom{from{transform:scale(.75);opacity:.42}to{transform:scale(1.34);opacity:1}}
+
+.weather{
+  position:absolute;
+  inset:0;
+  opacity:0;
+  background:radial-gradient(circle,rgba(255,255,255,.22),transparent 60%);
+  transition:.25s;
+  pointer-events:none;
+}
+.weather.active{opacity:1}
+
+@media(max-width:1150px){
+  .mainGrid{grid-template-columns:1fr}
+  .statusGrid{grid-template-columns:repeat(2,1fr)}
+  .phaseTrack{grid-template-columns:1fr}
+  .upgradeGrid{grid-template-columns:1fr}
+  .logo{font-size:34px}
+}
+</style>
+</head>
+
+<body>
+<div class="fire"></div>
+
+<section class="screen active intro" id="introScreen">
+  <div class="introCard">
+    <div class="logo">WAR LOGISTICS COMMANDER</div>
+    <div class="subtitle">ADVANCED LOGSIM 4 — UPGRADE AND PERFORMANCE CAMPAIGN</div>
+    <div class="introText">
+      The war continues. You must not only deliver supplies, but improve the whole logistics system over time.<br><br>
+      Every operation gives a performance score. Spend budget on supplies now or save money for upgrades later.<br>
+      Upgrades affect real gameplay: better trucks, stronger depot, drone scouting, weather system, emergency fuel, and medical response.
+    </div>
+    <button class="start" onclick="startGame()">▶ START ADVANCED LOGSIM 4</button>
+  </div>
+</section>
+
+<section class="screen" id="gameScreen">
+  <div class="gameWrap">
+    <div class="top">
+      <div class="logo">WAR LOGISTICS COMMANDER</div>
+      <div class="subtitle">ADVANCED LOGSIM 4 — CONTINUOUS IMPROVEMENT SYSTEM</div>
+      <div class="alertBar">🚨 WARZONE LIVE — DELIVER, SCORE, UPGRADE, SURVIVE 🚨</div>
+    </div>
+
+    <div class="panel">
+      <div class="statusGrid">
+        <div class="status"><span>FOOD</span><strong id="food">60</strong><div class="bar"><div id="foodBar" class="fill"></div></div></div>
+        <div class="status"><span>FUEL</span><strong id="fuel">60</strong><div class="bar"><div id="fuelBar" class="fill"></div></div></div>
+        <div class="status"><span>AMMO</span><strong id="ammo">60</strong><div class="bar"><div id="ammoBar" class="fill"></div></div></div>
+        <div class="status"><span>MEDICAL</span><strong id="medical">60</strong><div class="bar"><div id="medicalBar" class="fill"></div></div></div>
+        <div class="status"><span>BUDGET</span><strong id="budget">140</strong><div class="bar"><div id="budgetBar" class="fill yellow"></div></div></div>
+        <div class="status"><span>MORALE</span><strong id="morale">78</strong><div class="bar"><div id="moraleBar" class="fill green"></div></div></div>
+        <div class="status"><span>BASE</span><strong id="base">100</strong><div class="bar"><div id="baseBar" class="fill"></div></div></div>
+        <div class="status"><span>CONVOY</span><strong id="convoy">100</strong><div class="bar"><div id="convoyBar" class="fill"></div></div></div>
+        <div class="status"><span>INTEL</span><strong id="intel">45</strong><div class="bar"><div id="intelBar" class="fill"></div></div></div>
+        <div class="status"><span>EFFICIENCY</span><strong id="efficiency">50</strong><div class="bar"><div id="efficiencyBar" class="fill"></div></div></div>
+        <div class="status"><span>SCORE</span><strong id="score">0</strong><div class="bar"><div id="scoreBar" class="fill green"></div></div></div>
+        <div class="status"><span>OP</span><strong id="round">1/8</strong><div class="bar"><div id="roundBar" class="fill green"></div></div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="phaseTrack">
+        <div class="phase active" id="phase1">PROCURE</div>
+        <div class="phase" id="phase2">STORAGE+</div>
+        <div class="phase" id="phase3">TOOLS</div>
+        <div class="phase" id="phase4">CONVOY+</div>
+        <div class="phase" id="phase5">UPGRADE</div>
+      </div>
+    </div>
+
+    <div class="mainGrid">
+      <div>
+        <div class="panel">
+          <div class="commandTitle" id="phaseTitle">PROCUREMENT WITH BUDGET STRATEGY</div>
+          <div class="brief" id="briefText">Buy supplies but save budget for upgrades.</div>
+          <div class="missionBox" id="missionText"></div>
+          <div class="buttons" id="buttonArea"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panelTitle">UPGRADE STATUS</div>
+          <div class="upgradeGrid">
+            <div class="upgrade"><h3>BETTER TRUCKS</h3>Level: <strong id="truckLevel">0</strong><br>Less convoy damage and breakdown.</div>
+            <div class="upgrade"><h3>STRONGER DEPOT</h3>Level: <strong id="depotLevel">0</strong><br>Less inventory loss and base damage.</div>
+            <div class="upgrade"><h3>DRONE SCOUT</h3>Level: <strong id="droneLevel">0</strong><br>More intel and lower ambush risk.</div>
+            <div class="upgrade"><h3>WEATHER SYSTEM</h3>Level: <strong id="weatherLevel">0</strong><br>Less delay from storms and road damage.</div>
+            <div class="upgrade"><h3>EMERGENCY FUEL</h3>Level: <strong id="fuelReserveLevel">0</strong><br>Auto support when fuel becomes low.</div>
+            <div class="upgrade"><h3>MEDICAL TEAM</h3>Level: <strong id="medicalTeamLevel">0</strong><br>Less morale loss during casualties.</div>
+          </div>
+        </div>
+
+        <div class="panel"><div class="panelTitle">MISSION MESSAGE</div><div class="messageBox" id="messageBox">Command terminal online.</div></div>
+        <div class="panel"><div class="panelTitle">OPERATIONS LOG</div><div class="logBox" id="logBox">System initialized.</div></div>
+      </div>
+
+      <div>
+        <div class="panel">
+          <div class="panelTitle">TACTICAL MAP</div>
+          <div class="map">
+            <div class="mapGrid"></div><div class="signal" id="signal">⚠ ENEMY SCAN ACTIVE</div>
+            <div class="mapUnit base">🏚 BASE DEPOT</div><div class="mapUnit convoy" id="convoyIcon">🚚 CONVOY</div>
+            <div class="mapUnit frontline">🪖 FRONTLINE</div><div class="mapUnit enemy">☠ ENEMY ZONE</div>
+            <div class="mapUnit heli">🚁 AIR SUPPORT</div><div class="mapUnit tank">🛡️ ARMORED UNIT</div><div class="mapUnit drone">🛰 DRONE</div>
+            <div class="explosion">💥</div><div class="weather" id="weather"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+let food=60,fuel=60,ammo=60,medical=60,budget=140,morale=78,base=100,convoy=100,intel=45,efficiency=50,score=0;
+let round=1,maxRound=8,phase=1,gameOver=false;
+let demand={food:20,fuel:15,ammo:18,medical:10};
+let depot="",route="",transport="",depotProtection=0,routeRisk=0,routeFuel=0,transportRisk=0,transportFuel=0,transportCost=0,transportPower=0;
+let deliveredRating="PENDING",lastDamage=0,lastScore=0,lastCost=0,lastWaste=0,lastEvent="None";
+
+let upgrades={trucks:0,depot:0,drone:0,weather:0,fuelReserve:0,medicalTeam:0};
+
+function startGame(){
+  document.getElementById("introScreen").classList.remove("active");
+  document.getElementById("gameScreen").classList.add("active");
+  newOperation();
+  renderProcurement();
+  updateUI();
+  addLog("Advanced LogSim 4 opened. Improvement campaign started.","warn");
+}
+
+function rand(min,max){return min+Math.floor(Math.random()*(max-min+1))}
+function newOperation(){
+  demand.food=rand(14,34);
+  demand.fuel=rand(12,28);
+  demand.ammo=rand(14,34);
+  demand.medical=rand(8,24);
+}
+
+function clamp(){
+  food=Math.max(0,food);fuel=Math.max(0,fuel);ammo=Math.max(0,ammo);medical=Math.max(0,medical);
+  budget=Math.max(0,budget);morale=Math.max(0,Math.min(100,morale));base=Math.max(0,Math.min(100,base));
+  convoy=Math.max(0,Math.min(100,convoy));intel=Math.max(0,Math.min(100,intel));efficiency=Math.max(0,Math.min(100,efficiency));score=Math.max(0,score);
+}
+
+function updateBar(id,value,max=100){
+  let el=document.getElementById(id);
+  let pct=Math.max(0,Math.min(100,(value/max)*100));
+  el.style.width=pct+"%";
+  el.classList.remove("red","yellow","green");
+  if(pct<30)el.classList.add("red");
+  else if(pct<60)el.classList.add("yellow");
+  else el.classList.add("green");
+}
+
+function updateUI(){
+  clamp();
+  document.getElementById("food").innerText=food;
+  document.getElementById("fuel").innerText=fuel;
+  document.getElementById("ammo").innerText=ammo;
+  document.getElementById("medical").innerText=medical;
+  document.getElementById("budget").innerText=budget;
+  document.getElementById("morale").innerText=morale;
+  document.getElementById("base").innerText=base;
+  document.getElementById("convoy").innerText=convoy;
+  document.getElementById("intel").innerText=intel;
+  document.getElementById("efficiency").innerText=efficiency;
+  document.getElementById("score").innerText=score;
+  document.getElementById("round").innerText=round+"/"+maxRound;
+
+  updateBar("foodBar",food,170);updateBar("fuelBar",fuel,170);updateBar("ammoBar",ammo,170);updateBar("medicalBar",medical,170);
+  updateBar("budgetBar",budget,200);updateBar("moraleBar",morale,100);updateBar("baseBar",base,100);updateBar("convoyBar",convoy,100);
+  updateBar("intelBar",intel,100);updateBar("efficiencyBar",efficiency,100);updateBar("scoreBar",Math.min(score,900),900);updateBar("roundBar",round,maxRound);
+
+  for(let i=1;i<=5;i++)document.getElementById("phase"+i).classList.remove("active");
+  document.getElementById("phase"+phase).classList.add("active");
+
+  document.getElementById("truckLevel").innerText=upgrades.trucks;
+  document.getElementById("depotLevel").innerText=upgrades.depot;
+  document.getElementById("droneLevel").innerText=upgrades.drone;
+  document.getElementById("weatherLevel").innerText=upgrades.weather;
+  document.getElementById("fuelReserveLevel").innerText=upgrades.fuelReserve;
+  document.getElementById("medicalTeamLevel").innerText=upgrades.medicalTeam;
+}
+
+function msg(t){document.getElementById("messageBox").innerHTML=t}
+function mission(t){document.getElementById("missionText").innerHTML=t}
+function addLog(t,type="info"){
+  let cls=type==="good"?"good":type==="bad"?"bad":type==="warn"?"warn":"info";
+  document.getElementById("logBox").innerHTML="<div class='"+cls+"'>▸ "+t+"</div>"+document.getElementById("logBox").innerHTML;
+}
+
+function alarm(t){
+  document.getElementById("signal").innerHTML=t;
+  document.body.classList.add("shake");
+  document.getElementById("weather").classList.add("active");
+  setTimeout(()=>{
+    document.getElementById("signal").innerHTML="⚠ ENEMY SCAN ACTIVE";
+    document.body.classList.remove("shake");
+    document.getElementById("weather").classList.remove("active");
+  },2200);
+}
+
+/* STAGE 1 */
+function renderProcurement(){
+  phase=1;depot="";route="";transport="";
+  depotProtection=0;routeRisk=0;routeFuel=0;transportRisk=0;transportFuel=0;transportCost=0;transportPower=0;
+  deliveredRating="PENDING";lastDamage=0;lastScore=0;lastCost=0;lastWaste=0;lastEvent="None";
+
+  document.getElementById("phaseTitle").innerText="PROCUREMENT WITH BUDGET STRATEGY";
+  document.getElementById("briefText").innerText="Buy supplies but save budget for future upgrades.";
+  mission("FRONTLINE DEMAND → Food "+demand.food+" | Fuel "+demand.fuel+" | Ammo "+demand.ammo+" | Medical "+demand.medical);
+  document.getElementById("buttonArea").innerHTML=
+  "<button onclick=\"buy('food')\">FOOD +12 ($10)</button>"+
+  "<button onclick=\"buy('fuel')\">FUEL +12 ($10)</button>"+
+  "<button onclick=\"buy('ammo')\">AMMO +12 ($10)</button>"+
+  "<button onclick=\"buy('medical')\">MEDICAL +12 ($10)</button>"+
+  "<button class='orange' onclick='buyEmergencyPackage()'>Emergency Reserve ($25)</button>"+
+  "<button class='green' onclick='renderStorage()'>Confirm Procurement</button>";
+  msg("Buy supplies, but do not spend everything. Upgrades after report are important.");
+  updateUI();
+}
+
+function buy(type){
+  if(gameOver||phase!==1)return;
+  if(budget<10){msg("Budget too low. Save remaining budget.");return}
+  if(type==="food"){food+=12;msg("Food purchased.")}
+  if(type==="fuel"){fuel+=12;msg("Fuel purchased.")}
+  if(type==="ammo"){ammo+=12;msg("Ammunition purchased.")}
+  if(type==="medical"){medical+=12;msg("Medical kits purchased.")}
+  budget-=10;lastCost+=10;
+  addLog(type+" purchased.");
+  updateUI();
+}
+
+function buyEmergencyPackage(){
+  if(gameOver||phase!==1)return;
+  if(budget<25){msg("Not enough budget for emergency reserve.");return}
+  food+=8;fuel+=8;ammo+=8;medical+=8;budget-=25;lastCost+=25;efficiency+=2;
+  msg("Emergency reserve package purchased. Balanced backup added.");
+  addLog("Emergency reserve package purchased.","good");
+  updateUI();
+}
+
+/* STAGE 2 */
+function renderStorage(){
+  phase=2;
+  document.getElementById("phaseTitle").innerText="STORAGE WITH UPGRADES";
+  document.getElementById("briefText").innerText="Depot upgrade level lowers storage damage risk.";
+  mission("Depot upgrade level: "+upgrades.depot+". Better depot security improves all storage choices.");
+  document.getElementById("buttonArea").innerHTML=
+  "<button onclick=\"selectDepot('Field Depot')\">Field Depot</button>"+
+  "<button class='yellow' onclick=\"selectDepot('Reinforced Warehouse')\">Reinforced Warehouse ($20)</button>"+
+  "<button class='green' onclick=\"selectDepot('Underground Bunker')\">Underground Bunker ($35)</button>"+
+  "<button class='blue' onclick='activateAntiDrone()'>Activate Anti-Drone ($15)</button>"+
+  "<button class='green' onclick='storageCheck()'>Secure Inventory</button>";
+  msg("Choose storage. Stronger depot upgrade reduces damage.");
+  addLog("Storage stage opened.","warn");
+  updateUI();
+}
+
+function selectDepot(d){
+  if(gameOver||phase!==2)return;
+  if(d==="Field Depot"){depot=d;depotProtection=.12+(upgrades.depot*.09);msg("Field Depot selected.")}
+  if(d==="Reinforced Warehouse"){
+    if(budget<20){msg("Not enough budget.");return}
+    budget-=20;lastCost+=20;depot=d;depotProtection=.42+(upgrades.depot*.09);msg("Reinforced Warehouse selected.");
+  }
+  if(d==="Underground Bunker"){
+    if(budget<35){msg("Not enough budget.");return}
+    budget-=35;lastCost+=35;depot=d;depotProtection=.70+(upgrades.depot*.09);msg("Underground Bunker selected.");
+  }
+  addLog("Depot selected: "+depot+".");
+  updateUI();
+}
+
+function activateAntiDrone(){
+  if(budget<15){msg("Not enough budget for anti-drone defense.");return}
+  budget-=15;lastCost+=15;depotProtection+=.15;base+=3;
+  msg("Anti-drone defense activated. Storage protection increased.");
+  addLog("Anti-drone defense activated.","good");
+  updateUI();
+}
+
+function storageCheck(){
+  if(depot===""){msg("Choose storage first.");return}
+  if(Math.random()>depotProtection+.50){
+    let loss=Math.max(3,10-upgrades.depot*2);
+    food-=loss;fuel-=loss;base-=Math.max(4,9-upgrades.depot);
+    lastDamage+=loss;
+    alarm("🚨 STORAGE DAMAGE");
+    msg("Enemy pressure damaged inventory. Depot upgrades reduced part of the loss.");
+    addLog("Storage damage occurred.","bad");
+  }else{
+    msg("Inventory secured. Depot system worked.");
+    addLog("Storage secured.","good");
+    efficiency+=2;
+  }
+  updateUI();checkGame();if(!gameOver)renderRoute();
+}
+
+/* STAGE 3 */
+function renderRoute(){
+  phase=3;
+  document.getElementById("phaseTitle").innerText="ROUTE PLANNING WITH BETTER TOOLS";
+  document.getElementById("briefText").innerText="Drone scouting, weather forecast, and better maps reduce route risk.";
+  mission("Drone Scout Level: "+upgrades.drone+" | Weather System Level: "+upgrades.weather+" | Current Intel: "+intel);
+  document.getElementById("buttonArea").innerHTML=
+  "<button class='blue' onclick='useDroneScan()'>Use Drone Scan ($10)</button>"+
+  "<button class='blue' onclick='useBetterMaps()'>Use Better Maps ($10)</button>"+
+  "<button class='green' onclick=\"selectRoute('Safe Road')\">Safe Road</button>"+
+  "<button class='yellow' onclick=\"selectRoute('Fast Highway')\">Fast Highway</button>"+
+  "<button class='red' onclick=\"selectRoute('Hot Zone Shortcut')\">Hot Zone Shortcut</button>"+
+  "<button onclick=\"selectTransport('Truck Convoy')\">Truck Convoy</button>"+
+  "<button class='yellow' onclick=\"selectTransport('Armored Convoy')\">Armored Convoy ($20)</button>"+
+  "<button class='green' onclick=\"selectTransport('Helicopter Drop')\">Helicopter Drop ($30)</button>"+
+  "<button class='green' onclick='renderConvoy()'>Deploy Plan</button>";
+  msg("Plan route using upgraded tools.");
+  addLog("Route planning stage opened.","warn");
+  updateUI();
+}
+
+function useDroneScan(){
+  if(budget<10){msg("Not enough budget for drone scan.");return}
+  budget-=10;lastCost+=10;
+  routeRisk-=.08+(upgrades.drone*.035);
+  intel+=10+upgrades.drone*5;
+  msg("Drone scan used. Ambush risk lowered and intel improved.");
+  addLog("Drone scouting used.","good");
+  updateUI();
+}
+
+function useBetterMaps(){
+  if(budget<10){msg("Not enough budget for better maps.");return}
+  budget-=10;lastCost+=10;
+  routeRisk-=.05;
+  routeFuel=Math.max(5,routeFuel-3);
+  efficiency+=3;
+  msg("Better maps used. Fuel efficiency improved.");
+  addLog("Better maps used.","good");
+  updateUI();
+}
+
+function selectRoute(r){
+  route=r;
+  let droneBonus=upgrades.drone*.035;
+  let weatherBonus=upgrades.weather*.025;
+  if(r==="Safe Road"){routeRisk=.14-droneBonus-weatherBonus;routeFuel=18;msg("Safe Road selected.")}
+  if(r==="Fast Highway"){routeRisk=.31-droneBonus-weatherBonus;routeFuel=20;msg("Fast Highway selected.")}
+  if(r==="Hot Zone Shortcut"){routeRisk=.55-droneBonus-weatherBonus;routeFuel=12;msg("Hot Zone Shortcut selected.")}
+  addLog("Route selected: "+route+".");
+}
+
+function selectTransport(t){
+  transport=t;
+  let truckBonus=upgrades.trucks*.045;
+  if(t==="Truck Convoy"){transportCost=0;transportRisk=.08-truckBonus;transportFuel=0;transportPower=5+upgrades.trucks;msg("Truck Convoy selected.")}
+  if(t==="Armored Convoy"){transportCost=20;transportRisk=-.15-truckBonus;transportFuel=10;transportPower=8+upgrades.trucks;msg("Armored Convoy selected.")}
+  if(t==="Helicopter Drop"){transportCost=30;transportRisk=-.12-truckBonus;transportFuel=22;transportPower=9+upgrades.trucks;msg("Helicopter Drop selected.")}
+  addLog("Transport selected: "+transport+".");
+  updateUI();
+}
+
+function renderConvoy(){
+  if(route===""||transport===""){msg("Choose route and transport first.");return}
+  if(budget<transportCost){msg("Not enough budget.");return}
+  budget-=transportCost;lastCost+=transportCost;
+  phase=4;
+  document.getElementById("phaseTitle").innerText="CONVOY WITH BETTER EQUIPMENT";
+  document.getElementById("briefText").innerText="Better trucks, emergency fuel, and medical team can reduce damage.";
+  mission("Route: "+route+" | Transport: "+transport);
+  document.getElementById("buttonArea").innerHTML=
+  "<button class='red' onclick='launchConvoy()'>Launch Convoy</button>"+
+  "<button class='orange' onclick='preLoadFuelTruck()'>Pre-load Emergency Fuel ($12)</button>";
+  msg("Convoy ready. Equipment upgrades will affect result.");
+  addLog("Convoy stage ready.","warn");
+  updateUI();
+}
+
+function preLoadFuelTruck(){
+  if(budget<12){msg("Not enough budget for emergency fuel truck.");return}
+  budget-=12;lastCost+=12;fuel+=10+upgrades.fuelReserve*3;
+  msg("Emergency fuel truck added to convoy.");
+  addLog("Emergency fuel truck pre-loaded.","good");
+  updateUI();
+}
+
+/* STAGE 4 */
+function launchConvoy(){
+  if(gameOver||phase!==4)return;
+  let icon=document.getElementById("convoyIcon");
+  icon.classList.remove("run");void icon.offsetWidth;icon.classList.add("run");
+
+  let match=0;if(food>=demand.food)match++;if(fuel>=demand.fuel)match++;if(ammo>=demand.ammo)match++;if(medical>=demand.medical)match++;
+
+  let beforeSupply=food+fuel+ammo+medical;
+
+  food-=Math.ceil(demand.food*.60);
+  fuel-=routeFuel+transportFuel;
+  ammo-=Math.ceil(demand.ammo*.62);
+  medical-=Math.ceil(demand.medical*.55);
+
+  if(fuel<15 && upgrades.fuelReserve>0){
+    let add=10+upgrades.fuelReserve*5;
+    fuel+=add;
+    budget=Math.max(0,budget-5);
+    addLog("Emergency fuel reserve activated: +"+add+" fuel.","good");
+  }
+
+  let weatherDelayChance=.22-(upgrades.weather*.05);
+  let intelBonus=intel/500;
+  let finalRisk=Math.max(.05,routeRisk+transportRisk-intelBonus);
+  let roll=Math.random();
+
+  if(roll<finalRisk){
+    lastEvent="Enemy Attack";
+    let damage=Math.max(8,24-upgrades.trucks*4);
+    let moraleLoss=Math.max(5,18-upgrades.medicalTeam*4);
+    convoy-=damage;morale-=moraleLoss;ammo-=8;medical-=6;lastDamage=damage;deliveredRating="DAMAGED";
+    alarm("💥 CONVOY HIT");
+    msg("Convoy was attacked. Upgrades reduced some damage.");
+    addLog("Convoy damaged by enemy attack.","bad");
+  }else if(roll<finalRisk+weatherDelayChance){
+    lastEvent="Weather Delay";
+    let moraleLoss=Math.max(2,8-upgrades.medicalTeam*2);
+    fuel-=6;morale-=moraleLoss;lastDamage=7;deliveredRating="DELAYED";
+    alarm("🌧 WEATHER DELAY");
+    msg("Weather delayed convoy. Forecast upgrade reduced risk.");
+    addLog("Weather delay occurred.","warn");
+  }else{
+    lastEvent="Clean Delivery";
+    morale+=10+match+transportPower;convoy=Math.min(100,convoy+3);lastDamage=0;deliveredRating="SUCCESS";
+    msg("Convoy delivered supplies successfully. Equipment performed well.");
+    addLog("Delivery success.","good");
+  }
+
+  if(match<3){morale-=8;lastWaste+=10;addLog("Supply package did not fully meet demand.","warn")}
+  if(match===4){efficiency+=5}
+
+  let afterSupply=food+fuel+ammo+medical;
+  lastWaste=Math.max(0,(beforeSupply-afterSupply)-70);
+  lastScore=Math.max(5,Math.round((match*25)+(morale/4)+(convoy/5)+(efficiency/4)-lastDamage-(lastCost/20)));
+  score+=lastScore;
+  efficiency+=Math.max(-8,Math.min(8,match*2-lastDamage/8));
+
+  addLog("Performance score gained: "+lastScore+".","good");
+  updateUI();checkGame();if(!gameOver)renderReport();
+}
+
+/* STAGE 5 */
+function renderReport(){
+  phase=5;
+  document.getElementById("phaseTitle").innerText="REPORT + UPGRADE CHOICE";
+  document.getElementById("briefText").innerText="Review performance, then buy upgrades for future missions.";
+  mission("Result: <b>"+deliveredRating+"</b> | Operation Score: <b>"+lastScore+"</b> | Total Score: <b>"+score+"</b>");
+  document.getElementById("buttonArea").innerHTML=
+  "<button onclick='openReport()'>Open Report</button>"+
+  "<button class='green' onclick=\"buyUpgrade('trucks')\">Better Trucks ($35)</button>"+
+  "<button class='green' onclick=\"buyUpgrade('depot')\">Stronger Depot ($35)</button>"+
+  "<button class='blue' onclick=\"buyUpgrade('drone')\">Drone Scout ($30)</button>"+
+  "<button class='yellow' onclick=\"buyUpgrade('weather')\">Weather Forecast ($25)</button>"+
+  "<button class='orange' onclick=\"buyUpgrade('fuelReserve')\">Emergency Fuel ($25)</button>"+
+  "<button class='blue' onclick=\"buyUpgrade('medicalTeam')\">Medical Team ($25)</button>"+
+  "<button class='green' onclick='nextOperation()'>Next Operation</button>";
+  addLog("Report and upgrade stage opened.","warn");
+  updateUI();
+}
+
+function openReport(){
+  let report="<b>OPERATION "+round+" PERFORMANCE REPORT</b><br><br>";
+  report+="Demand: Food "+demand.food+" | Fuel "+demand.fuel+" | Ammo "+demand.ammo+" | Medical "+demand.medical+"<br>";
+  report+="Depot: "+depot+"<br>Route: "+route+"<br>Transport: "+transport+"<br>";
+  report+="Event: "+lastEvent+"<br>Result: "+deliveredRating+"<br>Convoy Damage: "+lastDamage+"<br>";
+  report+="Operation Cost: "+lastCost+"<br>Operation Score: "+lastScore+"<br>Total Score: "+score+"<br>";
+  report+="Morale: "+morale+" | Convoy: "+convoy+" | Efficiency: "+efficiency+"<br><br>";
+
+  if(deliveredRating==="SUCCESS") report+="Assessment: system worked well. Use upgrades to keep advantage.";
+  else if(deliveredRating==="DELAYED") report+="Assessment: weather or route tools need improvement.";
+  else report+="Assessment: system needs better trucks, drone scout, or depot protection.";
+  msg(report);
+  addLog("Performance report reviewed.","info");
+}
+
+function buyUpgrade(type){
+  let cost=0,label="";
+  if(type==="trucks"){cost=35;label="Better Trucks"}
+  if(type==="depot"){cost=35;label="Stronger Depot"}
+  if(type==="drone"){cost=30;label="Drone Scout"}
+  if(type==="weather"){cost=25;label="Weather Forecast"}
+  if(type==="fuelReserve"){cost=25;label="Emergency Fuel Reserve"}
+  if(type==="medicalTeam"){cost=25;label="Medical Response Team"}
+
+  if(budget<cost){msg("Not enough budget for "+label+".");return}
+  if(upgrades[type]>=3){msg(label+" already at max level.");return}
+  budget-=cost;
+  upgrades[type]+=1;
+
+  if(type==="drone") intel+=8;
+  if(type==="depot") base+=4;
+  if(type==="trucks") convoy+=5;
+  if(type==="weather") efficiency+=4;
+  if(type==="medicalTeam") morale+=3;
+  if(type==="fuelReserve") fuel+=5;
+
+  msg(label+" upgraded to level "+upgrades[type]+".");
+  addLog(label+" upgraded.","good");
+  updateUI();
+}
+
+function nextOperation(){
+  if(gameOver||phase!==5)return;
+  if(round>=maxRound){winGame();return}
+  round++;
+  budget+=45;
+  food-=5;fuel-=5;ammo-=5;medical-=3;
+  convoy=Math.min(100,convoy+5+upgrades.trucks*2);
+  base=Math.min(100,base+upgrades.depot*2);
+  intel=Math.min(100,intel+upgrades.drone*2);
+  newOperation();
+  renderProcurement();
+  msg("New operation started. Continue improving the logistics system.");
+  addLog("Operation "+round+" opened.","warn");
+  updateUI();checkGame();
+}
+
+function checkGame(){
+  if(food<=0)return loseGame("Food supply collapsed.");
+  if(fuel<=0)return loseGame("Fuel supply collapsed.");
+  if(ammo<=0)return loseGame("Ammo supply collapsed.");
+  if(medical<=0)return loseGame("Medical supply collapsed.");
+  if(morale<=0)return loseGame("Troop morale collapsed.");
+  if(base<=0)return loseGame("Base depot destroyed.");
+  if(convoy<=0)return loseGame("Convoy fleet destroyed.");
+}
+
+function loseGame(reason){
+  gameOver=true;alarm("☠ MISSION FAILED");
+  msg("<b>MISSION FAILED</b><br><br>"+reason+"<br><br>Final Score: "+score);
+  document.getElementById("buttonArea").innerHTML="<button class='red' onclick='location.reload()'>Restart Simulation</button>";
+  addLog("Mission failed: "+reason,"bad");
+}
+
+function winGame(){
+  gameOver=true;
+  let rating="C";
+  if(score>650 && morale>60) rating="A";
+  else if(score>450 && morale>45) rating="B";
+  msg("<b>MISSION SUCCESS</b><br><br>You survived the campaign and improved the logistics system.<br>Final Score: "+score+"<br>Final Morale: "+morale+"<br>Final Efficiency: "+efficiency+"<br>Commander Rating: "+rating);
+  document.getElementById("buttonArea").innerHTML="<button class='green' onclick='location.reload()'>Play Again</button>";
+  addLog("All operations completed. System improved. Mission success.","good");
+}
+</script>
+</body>
+</html>
